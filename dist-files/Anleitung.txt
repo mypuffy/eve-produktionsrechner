@@ -1,0 +1,109 @@
+EVE PRODUKTIONSRECHNER
+======================
+
+Rechnet für die Produktion in EVE Online den Gewinn pro Item aus:
+Verkaufspreis minus Material, Jobkosten (Systemindex, Facility-Steuer,
+SCC-Zuschlag) sowie Verkaufssteuer und Maklergebühr.
+
+Das Programm holt sich selbst:
+- Blaupausen-Rezepte und Itemnamen (offizielle Spieldaten von CCP)
+- Assets, eigene Blaupausen (ME/TE) und Handelsskills des Charakters
+- Systemkostenindizes und Marktpreise (Jita, Amarr, Dodixie, Rens oder Hek)
+
+Alles läuft nur auf diesem Computer. Die Oberfläche öffnet sich im Browser
+unter http://localhost:52173
+
+
+STARTEN
+-------
+
+Windows:
+  Doppelklick auf "EVE-Produktionsrechner.exe".
+  Beim ersten Start warnt Windows ("Der Computer wurde durch Windows
+  geschützt"), weil das Programm nicht von einer Firma signiert ist.
+  Dann auf "Weitere Informationen" und "Trotzdem ausführen" klicken.
+  Falls die Firewall fragt: Zugriff erlauben ist nicht nötig, das Programm
+  spricht nur mit dem eigenen Computer und mit den EVE-Servern.
+
+Mac:
+  Doppelklick auf "EVE-Produktionsrechner". Es öffnet sich ein Terminal-
+  Fenster und danach der Browser.
+  Beim ersten Start blockiert macOS das Programm, weil es nicht bei Apple
+  registriert ist. Dann:
+    Systemeinstellungen > Datenschutz & Sicherheit > ganz nach unten
+    scrollen > bei "EVE-Produktionsrechner" auf "Dennoch öffnen" klicken.
+  Danach startet es normal.
+  (Alternativ im Terminal: xattr -d com.apple.quarantine
+   und dann die Datei ins Terminal-Fenster ziehen, Enter.)
+
+Das schwarze Fenster (Windows) bzw. Terminal (Mac) muss offen bleiben,
+solange der Rechner benutzt wird. Zum Beenden das Fenster schließen oder in
+der Oberfläche oben rechts auf "Beenden" klicken.
+
+
+EINRICHTUNG (einmalig, ca. 5 Minuten)
+-------------------------------------
+
+Beim ersten Start öffnet sich der Tab "Einrichtung" mit drei Schritten:
+
+1. Spieldaten laden
+   Lädt die Blaupausen von CCP (ca. 100 MB). Später ab und zu
+   "Auf Updates prüfen" klicken, z. B. nach einem großen EVE-Patch.
+
+2. EVE-Anwendung registrieren
+   CCP verlangt, dass jedes Programm, das Charakterdaten liest, eine eigene
+   Zugangs-ID hat. Die bekommt man kostenlos:
+   - https://developers.eveonline.com/applications öffnen, mit dem
+     EVE-Account anmelden
+   - "Create new application"
+   - Connection Type: "Authentication & API Access"
+   - Diese Berechtigungen auswählen:
+       esi-assets.read_assets.v1
+       esi-characters.read_blueprints.v1
+       esi-skills.read_skills.v1
+       esi-universe.read_structures.v1
+   - Callback URL:  http://localhost:52173/callback
+   - Speichern, die "Client ID" kopieren und im Programm einfügen.
+     Das "Secret" wird nicht gebraucht.
+
+3. Charakter anmelden
+   Öffnet die normale EVE-Anmeldung. Danach ist der Charakter verbunden.
+   Weitere Charaktere oben über "+ Charakter".
+
+
+BENUTZUNG
+---------
+
+Rechner:
+  Links ein Item suchen (z. B. "Hobgoblin I"). Material, Mengen, ME der
+  eigenen Blaupause, Marktpreise und Steuern werden eingetragen.
+  Dann Sonnensystem und Station/Struktur (mit Rigs) wählen.
+  Oben steht der Gewinn pro Stück, unten die genaue Aufschlüsselung.
+  Alle Werte lassen sich von Hand überschreiben.
+
+Lager:
+  Zeigt alle Assets, auf Wunsch nur von einem Standort. Dieser Standort
+  gilt auch für die Spalte "Im Lager" im Rechner. Darunter steht, wie viele
+  Läufe das Lager für jedes Item hergibt.
+  "Fehlendes als Einkaufsliste kopieren" im Rechner kopiert die fehlenden
+  Materialien, die man im Markt unter "Multibuy" einfügen kann.
+
+Blaupausen:
+  Alle eigenen Blaupausen mit ME/TE. "Rechnen" legt direkt eine Rechnung an.
+
+
+GUT ZU WISSEN
+-------------
+
+- CCP aktualisiert Asset-Daten höchstens etwa einmal pro Stunde. Was gerade
+  erst gekauft wurde, taucht also eventuell später auf.
+- Material aus dem eigenen Lager wird zum Marktpreis gerechnet, weil man es
+  sonst verkaufen könnte.
+- Bauteile, die man selbst herstellen kann, als eigenes Item anlegen und
+  deren "Kosten pro Stück" als Preis beim Hauptprodukt eintragen.
+- Itemnamen werden auf Deutsch angezeigt. Ist der EVE-Client auf Englisch,
+  kann "Multibuy" Items mit unterschiedlichem Namen nicht zuordnen.
+- Gespeichert wird alles im Benutzerordner:
+    Windows: %APPDATA%\EVE-Produktionsrechner
+    Mac:     ~/Library/Application Support/EVE-Produktionsrechner
+  Dort liegt auch log.txt, falls etwas nicht klappt.
