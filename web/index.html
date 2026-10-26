@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVE Produktionsrechner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 29 9v14l-13 7L3 23V9z' fill='%23e1aa3c'/%3E%3Cpath d='M16 9 23 13v7l-7 4-7-4v-7z' fill='%23161c22'/%3E%3C/svg%3E">
+<style>
+/* Werft-Konsole: Tabs Rechner / Lager / Blaupausen / Einrichtung. Schriften lokal, kein Internet für die Oberfläche nötig. */
+:root{
+  --bg:#eef0f2; --panel:#ffffff; --line:#d3d8de; --fg:#1b2129; --muted:#5d6874;
+  --accent:#a8740c; --accent-soft:#f6ecd6; --good:#1f7a4d; --bad:#b4322a; --warn:#a35d00; --field:#f7f8f9;
+  --display:"Bahnschrift","DIN Alternate","Avenir Next Condensed","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI",-apple-system,"Helvetica Neue",system-ui,sans-serif;
+  --mono:"Cascadia Mono","SF Mono",Consolas,Menlo,ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1317; --panel:#161c22; --line:#28313a; --fg:#e3e8ed; --muted:#8c98a5;
+  --accent:#e1aa3c; --accent-soft:#2a2214; --good:#4cc488; --bad:#ef6a5f; --warn:#f0a04b; --field:#11161b; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;padding:18px 16px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:1.6rem;letter-spacing:.02em;margin:0}
+h1 span{color:var(--accent)}
+h2{font-family:var(--display);font-weight:600;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+h3{font-family:var(--display);font-size:1.05rem;margin:0}
+.who{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+select,input,textarea{font:400 .95rem var(--body);background:var(--field);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;min-width:0}
+input,textarea{width:100%}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+input.num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+input:disabled,select:disabled{opacity:.55}
+textarea{font-family:var(--mono);font-size:.85rem}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--line)}
+.tabs button{all:unset;cursor:pointer;font-family:var(--display);font-weight:600;letter-spacing:.05em;padding:8px 16px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--fg);border-color:var(--accent)}
+.tabs button:focus-visible{outline:2px solid var(--accent)}
+.tabs .cnt{font-family:var(--mono);font-size:.75rem;color:var(--accent);margin-left:6px}
+.grid{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.list{display:flex;flex-direction:column;gap:3px;max-height:60vh;overflow:auto}
+.list button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:4px;font-size:.92rem}
+.list button:hover{background:var(--field)}
+.list button.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
+.list button:focus-visible{outline:2px solid var(--accent)}
+.list .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .pf{font-family:var(--mono);font-size:.8rem;white-space:nowrap}
+.pos{color:var(--good)} .neg{color:var(--bad)} .warn{color:var(--warn)} .mut{color:var(--muted)}
+.btn{font:500 .88rem var(--body);border:1px solid var(--line);background:var(--field);color:var(--fg);padding:7px 12px;border-radius:4px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#16110a;font-weight:600}
+.btn.ghost{background:none}
+.btn.small{padding:4px 9px;font-size:.8rem}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+a.btn{text-decoration:none;display:inline-block}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);letter-spacing:.02em;min-width:0}
+label.check{flex-direction:row;align-items:center;gap:8px;font-size:.88rem;color:var(--fg)}
+label.check input{width:auto}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.fields .wide{grid-column:1/-1}
+.fields .two{grid-column:span 2}
+@media (max-width:520px){.fields .two{grid-column:1/-1}}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+legend{font-family:var(--display);font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:0 6px}
+.bill{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+@media (max-width:640px){.bill{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bill div{background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.bill .k{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.bill .v{font-family:var(--mono);font-size:1.15rem;overflow-wrap:anywhere}
+.bill .hero{background:var(--accent-soft)}
+.bill .hero .v{font-family:var(--display);font-size:1.5rem;font-weight:700}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th{font:600 .72rem var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.r,th.r{text-align:right}
+td.calc{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mat td input{padding:5px 7px}
+.x{all:unset;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:3px}
+.x:hover{color:var(--bad)} .x:focus-visible{outline:2px solid var(--accent)}
+.pill{display:inline-block;font:600 .7rem var(--body);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.pill.ok{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.pill.no{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.pill.part{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.pill.info{background:var(--accent-soft);color:var(--accent)}
+.breakdown{display:grid;grid-template-columns:1fr auto;gap:4px 16px;font-size:.92rem;max-width:600px}
+.breakdown .calc{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.breakdown .sum{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
+.breakdown .ind{padding-left:16px;color:var(--muted);font-size:.85rem}
+.hint{font-size:.8rem;color:var(--muted);margin:0;max-width:80ch}
+.stats{display:flex;flex-wrap:wrap;gap:8px 28px}
+.stats div{display:flex;flex-direction:column}
+.stats .k{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stats .v{font-family:var(--mono);font-size:1.1rem}
+.empty{padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:6px}
+.search{position:relative}
+.results{position:absolute;left:0;right:0;top:100%;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-top:2px;max-height:320px;overflow:auto;box-shadow:0 8px 24px rgb(0 0 0 / .18)}
+.results button{all:unset;display:block;width:100%;box-sizing:border-box;padding:7px 10px;cursor:pointer;font-size:.9rem}
+.results button:hover,.results button:focus{background:var(--accent-soft)}
+.results small{color:var(--muted);display:block;font-size:.75rem}
+.steps{display:flex;flex-direction:column;gap:14px;max-width:820px}
+.step{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px}
+.step .n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;background:var(--field);border:1px solid var(--line)}
+.step.done .n{background:var(--good);border-color:var(--good);color:#fff}
+.step .c{display:flex;flex-direction:column;gap:8px;min-width:0}
+code,.code{font-family:var(--mono);font-size:.85rem;background:var(--field);border:1px solid var(--line);border-radius:3px;padding:1px 5px;overflow-wrap:anywhere}
+ol.how{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+.bar{height:6px;background:var(--field);border-radius:3px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--accent);width:0}
+.banner{padding:10px 14px;border-radius:6px;background:var(--accent-soft);border:1px solid var(--accent);font-size:.9rem}
+.banner.err{background:color-mix(in srgb,var(--bad) 10%,var(--panel));border-color:var(--bad)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:4px;font-size:.88rem;z-index:50;max-width:90vw}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>EVE <span>Produktions</span>rechner</h1>
+    <div class="who">
+      <select id="charSel" title="Charakter"></select>
+      <a class="btn" href="/login" id="addChar">+ Charakter</a>
+      <select id="hubSel" title="Markt für Preise"></select>
+      <button class="btn ghost" id="quit">Beenden</button>
+    </div>
+  </header>
+  <div id="banner"></div>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="calc" class="on">Rechner</button>
+    <button data-tab="stock">Lager<span class="cnt" id="stockCnt"></span></button>
+    <button data-tab="bps">Blaupausen<span class="cnt" id="bpCnt"></span></button>
+    <button data-tab="setup">Einrichtung</button>
+  </nav>
+
+  <!-- ===== Rechner ===== -->
+  <section id="view-calc" style="display:flex;flex-direction:column;gap:16px">
+    <div class="grid">
+      <aside class="panel">
+        <h2>Neues Item</h2>
+        <div class="search">
+          <input id="search" placeholder="Item suchen, z. B. Hobgoblin" autocomplete="off">
+          <div class="results" id="results" hidden></div>
+        </div>
+        <button class="btn ghost small" id="addBlank" style="align-self:flex-start">Leeres Item ohne Blaupause</button>
+        <h2>Meine Rechnungen</h2>
+        <div class="list" id="list"></div>
+      </aside>
+      <main class="panel" id="editor"></main>
+    </div>
+    <section class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Übersicht aller Items</h2>
+        <button class="btn" id="refreshAll">Alle Preise aktualisieren</button>
+      </div>
+      <div class="scroll"><table id="overview"></table></div>
+    </section>
+  </section>
+
+  <!-- ===== Lager ===== -->
+  <section id="view-stock" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <div class="stats" id="stockStats"></div>
+        <button class="btn" id="stockRefresh">Neu laden</button>
+      </div>
+      <div class="row">
+        <select id="locSel" style="max-width:420px"></select>
+        <input id="stockSearch" placeholder="Im Lager suchen …" style="max-width:280px">
+      </div>
+      <p class="hint">Der Standort-Filter gilt auch für die Spalte „Im Lager“ im Rechner. CCP aktualisiert die Asset-Daten höchstens einmal pro Stunde.</p>
+      <div class="scroll"><table id="stockTable"></table></div>
+      <h2 style="margin-top:6px">Was kann ich mit diesem Lager bauen?</h2>
+      <div class="scroll"><table id="buildable"></table></div>
+    </div>
+  </section>
+
+  <!-- ===== Blaupausen ===== -->
+  <section id="view-bps" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <input id="bpSearch" placeholder="Blaupausen suchen …" style="max-width:320px">
+        <button class="btn" id="bpRefresh">Neu laden</button>
+      </div>
+      <div class="scroll"><table id="bpTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ===== Einrichtung ===== -->
+  <section id="view-setup" hidden>
+    <div class="panel">
+      <div class="steps">
+        <div class="step" id="st1"><div class="n">1</div><div class="c">
+          <h3>Spieldaten laden</h3>
+          <p class="hint">Lädt einmalig die Blaupausen und Itemnamen direkt von CCP (ca. 100 MB Download, dauert je nach Leitung ein paar Minuten).</p>
+          <div id="sdeInfo" class="hint"></div>
+          <div class="bar" id="sdeBar" hidden><i></i></div>
+          <div class="row"><button class="btn primary" id="sdeLoad">Spieldaten laden</button><button class="btn ghost small" id="sdeForce" hidden>Neu herunterladen</button></div>
+        </div></div>
+
+        <div class="step" id="st2"><div class="n">2</div><div class="c">
+          <h3>EVE-Anwendung registrieren (einmalig)</h3>
+          <p class="hint">Damit das Programm Assets, Blaupausen und Skills lesen darf, braucht es eine eigene Zugangs-ID von CCP. Das ist kostenlos und dauert zwei Minuten.</p>
+          <ol class="how">
+            <li>Auf <a href="https://developers.eveonline.com/applications" target="_blank" rel="noopener">developers.eveonline.com/applications</a> mit dem EVE-Account anmelden.</li>
+            <li><b>Create new application</b> anklicken. Name z. B. „Produktionsrechner“, Beschreibung beliebig.</li>
+            <li>Bei <b>Connection Type</b> „Authentication &amp; API Access“ wählen.</li>
+            <li>Diese Berechtigungen (Scopes) auswählen: <span id="scopeList"></span> <button class="btn small" data-copy="scopes">Kopieren</button></li>
+            <li>Als <b>Callback URL</b> eintragen: <code id="cbUrl"></code> <button class="btn small" data-copy="callback">Kopieren</button></li>
+            <li>Speichern, dann die <b>Client ID</b> kopieren und hier einfügen. Das Secret wird nicht gebraucht.</li>
+          </ol>
+          <div class="row" style="max-width:560px"><input id="clientId" placeholder="Client ID" style="flex:1"><button class="btn primary" id="saveClient">Speichern</button></div>
+        </div></div>
+
+        <div class="step" id="st3"><div class="n">3</div><div class="c">
+          <h3>Charakter anmelden</h3>
+          <p class="hint">Öffnet die offizielle EVE-Anmeldung. Danach landet man automatisch wieder hier. Mehrere Charaktere sind möglich.</p>
+          <div id="charListSetup" class="row"></div>
+          <div class="row"><a class="btn primary" href="/login" id="loginBtn">Charakter anmelden</a></div>
+        </div></div>
+      </div>
+      <p class="hint" id="dataDirInfo"></p>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ---------- Grundlagen ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+function num(v){
+  if(typeof v==='number')return v;
+  let s=String(v??'').trim().toLowerCase().replace(/[\s ']|isk/g,'');
+  if(!s)return 0;
+  let mul=1;const m=s.match(/([kmb])$/);
+  if(m){mul={k:1e3,m:1e6,b:1e9}[m[1]];s=s.slice(0,-1)}
+  const d=s.lastIndexOf('.'),c=s.lastIndexOf(',');
+  if(d>=0&&c>=0){s=d>c?s.replace(/,/g,''):s.replace(/\./g,'').replace(',','.')}
+  else if(c>=0){s=(s.match(/,/g).length>1)?s.replace(/,/g,''):s.replace(',','.')}
+  else if((s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');
+  const n=parseFloat(s);return isFinite(n)?n*mul:0;
+}
+const int=v=>{const s=String(v??'').replace(/[^\d]/g,'');return s?parseInt(s,10):0};
+const fmt=(n,d=2)=>(+n||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const isk=(n,d=2)=>fmt(n,d)+' ISK';
+const short=n=>{const a=Math.abs(n);return a>=1e9?fmt(n/1e9,2)+' Mrd':a>=1e6?fmt(n/1e6,2)+' Mio':a>=1e4?fmt(n/1e3,1)+' Tsd':fmt(n,0)};
+const cls=v=>v>=0?'pos':'neg';
+const plain=n=>String(Math.round(n*100)/100).replace('.',',');
+function toast(t,ms=2400){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)}
+async function call(path,opts={}){
+  const o={headers:{'X-App':'1'},...opts};
+  if(o.body&&typeof o.body!=='string'){o.body=JSON.stringify(o.body);o.headers['Content-Type']='application/json'}
+  const r=await fetch(path,o);let j=null;try{j=await r.json()}catch(_){}
+  if(!r.ok)throw new Error(j?.error||('Fehler '+r.status));return j;
+}
+async function copy(text){try{await navigator.clipboard.writeText(text);toast('Kopiert')}catch(_){toast('Kopieren nicht möglich')}}
+
+// ---------- Produktionsstätten ----------
+const FACILITIES={
+  npc:{label:'NPC-Station',mat:0,job:0,fac:0.25,rigs:false},
+  raitaru:{label:'Raitaru',mat:1,job:3,rigs:true},
+  azbel:{label:'Azbel',mat:1,job:4,rigs:true},
+  sotiyo:{label:'Sotiyo',mat:1,job:5,rigs:true},
+  custom:{label:'Eigene Werte',rigs:false},
+};
+const RIGS={none:{label:'Kein ME-Rig',v:0},t1:{label:'T1 ME-Rig (2 %)',v:2},t2:{label:'T2 ME-Rig (2,4 %)',v:2.4}};
+const SECS={high:{label:'Highsec',m:1},low:{label:'Lowsec',m:1.9},null:{label:'Nullsec / WH',m:2.1}};
+function facilityBonuses(it){
+  const f=FACILITIES[it.facility]||FACILITIES.npc;
+  if(it.facility==='custom')return{mat:num(it.matBonus),job:num(it.costBonus)};
+  const rig=f.rigs?(RIGS[it.rig]?.v||0)*(SECS[it.sec]?.m||1):0;
+  return{mat:(1-(1-f.mat/100)*(1-rig/100))*100,job:f.job};
+}
+
+// ---------- Zustand ----------
+const defaults={perRun:1,runs:1,me:0,price:'',facility:'npc',rig:'none',sec:'high',matBonus:0,costBonus:0,facTax:0.25,scc:4,alpha:false,
+  systemId:null,systemName:'',sci:'',eiv:'',manualJob:false,jobCost:'',tax:3.38,broker:1.5,sellOrder:true};
+let state={items:[],sel:null,settings:{hub:'jita',matMode:'sell',prodMode:'sell',char:'',loc:'all',lastSystem:null}};
+let app={chars:[],sde:{},systems:[],assets:{},blueprints:{},skills:{},hubs:[]};
+const cur=()=>state.items.find(i=>i.id===state.sel);
+let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>call('/api/data',{method:'PUT',body:{items:state.items,sel:state.sel,settings:state.settings}}).catch(e=>toast('Speichern fehlgeschlagen: '+e.message)),400)}
+
+// ---------- Rechnung ----------
+function matQty(base,runs,me,mb){
+  base=num(base);if(!base)return 0;
+  const q=Math.ceil(+(base*runs*(1-me/100)*(1-mb/100)).toFixed(2));
+  return Math.max(runs,q);
+}
+function stockOf(m){
+  const a=mergedAssets();if(!a)return null;
+  const k=m.typeId?('t'+m.typeId):('n'+String(m.name||'').trim().toLowerCase());
+  return a.get(k)||0;
+}
+function calc(it,runsOverride){
+  const runs=runsOverride||Math.max(1,int(it.runs)||1), me=num(it.me), fb=facilityBonuses(it);
+  const units=runs*Math.max(1,int(it.perRun)||1);
+  let matCost=0,eivRun=0,eivFromAdj=true;
+  const lines=it.mats.map(m=>{const q=matQty(m.qty,runs,me,fb.mat),c=q*num(m.price);matCost+=c;
+    const adj=num(m.adj);if(!adj)eivFromAdj=false;eivRun+=num(m.qty)*(adj||num(m.price));
+    return{q,c,have:stockOf(m)}});
+  const eivManual=String(it.eiv).trim()!=='';
+  const eiv=(eivManual?num(it.eiv):eivRun)*runs;
+  const sciCost=eiv*num(it.sci)/100*(1-fb.job/100), facCost=eiv*num(it.facTax)/100, sccCost=eiv*num(it.scc)/100, alphaCost=it.alpha?eiv*0.0025:0;
+  const job=it.manualJob?num(it.jobCost):sciCost+facCost+sccCost+alphaCost;
+  const price=num(it.price), gross=price*units;
+  const tax=gross*num(it.tax)/100, broker=it.sellOrder?gross*num(it.broker)/100:0;
+  const cost=matCost+job, profit=gross-tax-broker-cost;
+  return{runs,units,fb,lines,matCost,eiv,eivSource:eivManual?'eingetragen':eivFromAdj?'CCP-Richtpreise':'geschätzt aus Marktpreisen',
+    sciCost,facCost,sccCost,alphaCost,job,gross,tax,broker,cost,profit,perItem:profit/units,costPerItem:cost/units,margin:gross?profit/gross*100:0};
+}
+function maxRuns(it){
+  const a=mergedAssets();if(!a)return 0;
+  const mats=it.mats.filter(m=>num(m.qty)>0);if(!mats.length)return 0;
+  const fb=facilityBonuses(it),me=num(it.me);
+  const ok=r=>mats.every(m=>(stockOf(m)||0)>=matQty(m.qty,r,me,fb.mat));
+  if(!ok(1))return 0;let lo=1,hi=2;while(ok(hi)&&hi<1e7){lo=hi;hi*=2}
+  while(hi-lo>1){const mid=(lo+hi)>>1;ok(mid)?lo=mid:hi=mid}return lo;
+}
+
+// ---------- Charaktere, Assets ----------
+function selectedChars(){const s=state.settings.char;if(s==='all')return app.chars;return app.chars.filter(c=>String(c.id)===String(s))}
+let mergedCache=null;
+function mergedAssets(){
+  if(mergedCache!==null)return mergedCache||null;
+  const chars=selectedChars().filter(c=>app.assets[c.id]);
+  if(!chars.length){mergedCache=false;return null}
+  const m=new Map(),loc=state.settings.loc;
+  for(const c of chars)for(const t of app.assets[c.id].types){
+    const q=loc==='all'?t.qty:(t.byLoc[loc]||0);if(!q)continue;
+    m.set('t'+t.typeId,(m.get('t'+t.typeId)||0)+q);
+    const nk='n'+t.name.toLowerCase();m.set(nk,(m.get(nk)||0)+q);
+  }
+  mergedCache=m;return m;
+}
+async function loadCharData(force=false){
+  mergedCache=null;
+  const chars=selectedChars();if(!chars.length){renderAll();return}
+  await Promise.all(chars.map(async c=>{
+    const q=`?char=${c.id}${force?'&force=1':''}`;
+    try{app.assets[c.id]=await call('/api/assets'+q)}catch(e){showBanner(`Assets von ${c.name}: ${e.message}`,true)}
+    try{app.blueprints[c.id]=await call('/api/blueprints'+q)}catch(e){}
+    try{app.skills[c.id]=await call('/api/skills'+q)}catch(e){}
+  }));
+  mergedCache=null;renderAll();
+}
+function ownedBlueprints(){return selectedChars().flatMap(c=>(app.blueprints[c.id]||[]).map(b=>({...b,char:c.name})))}
+function bestOwnedME(productId){const b=ownedBlueprints().filter(b=>b.productId===productId);return b.length?Math.max(...b.map(x=>x.me)):null}
+
+// ---------- Preise ----------
+async function fetchPrices(items,force=false){
+  const ids=new Set();items.forEach(it=>{if(it.productId)ids.add(it.productId);it.mats.forEach(m=>m.typeId&&ids.add(m.typeId))});
+  if(!ids.size){toast('Keine Items mit EVE-Typ – Preise bitte von Hand eintragen');return}
+  toast('Hole Marktpreise …',8000);
+  let r;try{r=await call('/api/prices',{method:'POST',body:{hub:state.settings.hub,types:[...ids],force}})}catch(e){toast('Preise nicht abrufbar: '+e.message);return}
+  const P=r.prices,mm=state.settings.matMode,pm=state.settings.prodMode;
+  for(const it of items){
+    for(const m of it.mats){const p=P[m.typeId];if(!p)continue;const v=mm==='buy'?(p.buy||p.sell):(p.sell||p.buy);if(v)m.price=plain(v);if(p.adjusted)m.adj=p.adjusted}
+    const p=P[it.productId];if(p){const v=pm==='buy'?(p.buy||p.sell):(p.sell||p.buy);if(v)it.price=plain(v);it.sellOrder=pm==='sell'}
+    it.pricesAt=r.at;
+  }
+  const hub=app.hubs.find(h=>h.key===state.settings.hub);
+  toast(`Preise aus ${hub?hub.name.split(' ')[0]:'Jita'} übernommen`+(r.errors?.length?` (${r.errors.length} Fehler)`:''));
+  save();renderAll();
+}
+function applySkills(it){
+  const sk=selectedChars().map(c=>app.skills[c.id]).find(Boolean);if(!sk)return false;
+  it.tax=+(7.5*(1-0.11*sk.accounting)).toFixed(3);
+  it.broker=+(3-0.3*sk.brokerRelations).toFixed(2);return true;
+}
+
+// ---------- Item anlegen ----------
+async function addFromProduct(productId,meOverride){
+  let bp;try{bp=await call('/api/blueprint?product='+productId)}catch(e){toast(e.message);return}
+  const it={...defaults,id:uid(),name:bp.product,productId:bp.productId,blueprintId:bp.blueprintId,perRun:bp.perRun,
+    mats:bp.materials.map(m=>({id:uid(),typeId:m.typeId,name:m.name,qty:m.qty,price:'',buildable:m.buildable}))};
+  const me=meOverride??bestOwnedME(bp.productId);if(me!=null)it.me=me;
+  const ls=state.settings.lastSystem;if(ls){it.systemId=ls.id;it.systemName=ls.name;it.sci=ls.index!=null?plain(ls.index):''}
+  if(state.settings.lastFacility)Object.assign(it,state.settings.lastFacility);
+  applySkills(it);
+  state.items.unshift(it);state.sel=it.id;save();setTab('calc');
+  await fetchPrices([it]);
+}
+
+// ---------- Rendering: Rechner ----------
+function renderList(){
+  $('#list').innerHTML=state.items.length?state.items.map(it=>{const r=calc(it);
+    return `<button class="${it.id===state.sel?'on':''}" data-id="${it.id}"><span class="nm">${esc(it.name||'Ohne Namen')}</span><span class="pf ${cls(r.perItem)}">${short(r.perItem)}</span></button>`}).join('')
+    :'<p class="hint">Noch keine Rechnungen. Oben ein Item suchen.</p>';
+}
+function renderOverview(){
+  const rows=state.items.map(it=>({it,r:calc(it)})).sort((a,b)=>b.r.perItem-a.r.perItem);
+  $('#overview').innerHTML=rows.length?`<thead><tr><th>Item</th><th class="r">Kosten / Stück</th><th class="r">davon Job</th><th class="r">Verkauf / Stück</th><th class="r">Gewinn / Stück</th><th class="r">Marge</th><th class="r">Gewinn gesamt</th><th class="r">Läufe aus Lager</th></tr></thead><tbody>`+
+    rows.map(({it,r})=>{const mr=mergedAssets()?maxRuns(it):null;return `<tr><td><a href="#" data-goto="${it.id}">${esc(it.name)}</a></td><td class="r calc">${isk(r.costPerItem)}</td><td class="r calc mut">${isk(r.job/r.units)}</td><td class="r calc">${isk(num(it.price))}</td><td class="r calc ${cls(r.perItem)}">${isk(r.perItem)}</td><td class="r calc ${cls(r.margin)}">${fmt(r.margin,1)} %</td><td class="r calc ${cls(r.profit)}">${isk(r.profit,0)}</td><td class="r calc">${mr==null?'–':mr?fmt(mr,0):'<span class="pill no">0</span>'}</td></tr>`}).join('')+'</tbody>'
+    :'<tbody><tr><td class="mut">Noch nichts berechnet.</td></tr></tbody>';
+}
+function opts(obj,sel){return Object.entries(obj).map(([k,v])=>`<option value="${k}" ${k===sel?'selected':''}>${esc(v.label)}</option>`).join('')}
+function renderEditor(){
+  const it=cur();const ed=$('#editor');
+  if(!it){ed.innerHTML=`<div class="empty">Links ein Item suchen, z. B. „Hobgoblin I“. Material, Mengen und Preise werden automatisch eingetragen.</div>`;return}
+  const f=FACILITIES[it.facility]||FACILITIES.npc, owned=it.productId?ownedBlueprints().filter(b=>b.productId===it.productId):[];
+  const hasSkills=selectedChars().some(c=>app.skills[c.id]);
+  ed.innerHTML=`
+    <div class="bill" id="bill"></div>
+    <div class="fields">
+      <label class="two">Item<input id="f-name" data-k="name" value="${esc(it.name)}"></label>
+      <label>Verkaufspreis / Stück<input id="f-price" class="num" data-k="price" value="${esc(it.price)}" placeholder="z. B. 26000 oder 1,5m"></label>
+      <label>Läufe (Runs)<input id="f-runs" class="num" data-k="runs" value="${esc(it.runs)}" inputmode="numeric"></label>
+      <label>Stück pro Lauf<input id="f-perRun" class="num" data-k="perRun" value="${esc(it.perRun)}" inputmode="numeric"></label>
+      <label>ME der Blaupause (%)<input id="f-me" class="num" data-k="me" value="${esc(it.me)}" inputmode="decimal"></label>
+    </div>
+    ${owned.length?`<p class="hint">Eigene Blaupausen: ${owned.slice(0,4).map(b=>`${b.runs<0?'Original':'Kopie ('+b.runs+' Läufe)'} ME ${b.me} / TE ${b.te}${b.location?' – '+esc(b.location):''}`).join(' · ')}</p>`:''}
+    <div class="row">
+      <button class="btn" id="priceThis">Preise aktualisieren</button>
+      <label class="check">Material kaufen über
+        <select id="matMode"><option value="sell" ${state.settings.matMode==='sell'?'selected':''}>Sofortkauf (Sell-Orders)</option><option value="buy" ${state.settings.matMode==='buy'?'selected':''}>eigene Kauforder (Buy-Orders)</option></select></label>
+      <label class="check">Produkt verkaufen über
+        <select id="prodMode"><option value="sell" ${state.settings.prodMode==='sell'?'selected':''}>eigene Verkaufsorder</option><option value="buy" ${state.settings.prodMode==='buy'?'selected':''}>Sofortverkauf an Buy-Orders</option></select></label>
+    </div>
+    ${it.pricesAt?`<p class="hint">Preise vom ${new Date(it.pricesAt).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}</p>`:''}
+
+    <fieldset>
+      <legend>Produktionsort und Jobkosten</legend>
+      <div class="fields">
+        <label class="two">Sonnensystem<input id="f-system" list="sysList" value="${esc(it.systemName)}" placeholder="${app.systems.length?'Systemname tippen':'Systeme werden geladen …'}" autocomplete="off"></label>
+        <label>Systemkostenindex (%)<input id="f-sci" class="num" data-k="sci" value="${esc(it.sci)}" inputmode="decimal"></label>
+        <label>Station / Struktur<select id="f-facility">${opts(FACILITIES,it.facility)}</select></label>
+        <label ${f.rigs?'':'hidden'}>ME-Rig<select id="f-rig">${opts(RIGS,it.rig)}</select></label>
+        <label ${f.rigs?'':'hidden'}>Sicherheit<select id="f-sec">${opts(SECS,it.sec)}</select></label>
+        <label ${it.facility==='custom'?'':'hidden'}>Material-Bonus (%)<input id="f-mb" class="num" data-k="matBonus" value="${esc(it.matBonus)}"></label>
+        <label ${it.facility==='custom'?'':'hidden'}>Jobkosten-Bonus (%)<input id="f-cb" class="num" data-k="costBonus" value="${esc(it.costBonus)}"></label>
+        <label>Facility-Steuer (%)<input id="f-fac" class="num" data-k="facTax" value="${esc(it.facTax)}" inputmode="decimal"></label>
+        <label>SCC-Zuschlag (%)<input id="f-scc" class="num" data-k="scc" value="${esc(it.scc)}" inputmode="decimal"></label>
+        <label>EIV / Lauf (leer = automatisch)<input id="f-eiv" class="num" data-k="eiv" value="${esc(it.eiv)}"></label>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="f-alpha" ${it.alpha?'checked':''}>Alpha-Klon (+0,25 %)</label>
+        <label class="check"><input type="checkbox" id="f-manual" ${it.manualJob?'checked':''}>Jobkosten direkt eintragen</label>
+        <label ${it.manualJob?'':'hidden'} style="flex-direction:row;align-items:center;gap:8px">Jobkosten gesamt<input id="f-job" class="num" data-k="jobCost" value="${esc(it.jobCost)}" style="width:160px"></label>
+      </div>
+      <p class="hint" id="facHint"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Verkauf</legend>
+      <div class="fields">
+        <label>Verkaufssteuer (%)<input id="f-tax" class="num" data-k="tax" value="${esc(it.tax)}" inputmode="decimal"></label>
+        <label>Maklergebühr (%)<input id="f-broker" class="num" data-k="broker" value="${esc(it.broker)}" inputmode="decimal"></label>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="f-sell" ${it.sellOrder?'checked':''}>Verkauf per Sell-Order (Maklergebühr fällt an)</label>
+        ${hasSkills?'<button class="btn small" id="fromSkills">Aus Skills übernehmen</button>':''}
+      </div>
+      <p class="hint">Aus Skills: Steuer 7,5 % minus 11 % je Stufe Accounting, Maklergebühr 3 % minus 0,3 % je Stufe Broker Relations. Standings senken die Maklergebühr weiter, in Spielerstrukturen legt der Besitzer sie fest.</p>
+    </fieldset>
+
+    <h2>Material</h2>
+    <div class="scroll"><table class="mat">
+      <thead><tr><th>Material</th><th class="r">Basis / Lauf</th><th class="r">Preis / Einheit</th><th class="r">Benötigt</th><th class="r">Im Lager</th><th class="r">Kosten</th><th></th></tr></thead>
+      <tbody id="mats"></tbody>
+    </table></div>
+    <div class="row"><button class="btn small" id="addMat">+ Material</button><button class="btn small ghost" id="shopList">Fehlendes als Einkaufsliste kopieren</button></div>
+    <p class="hint" id="subHint"></p>
+
+    <div class="breakdown" id="breakdown"></div>
+    <p class="hint">Material aus dem eigenen Lager wird zum Marktpreis gerechnet, weil man es sonst verkaufen könnte.</p>
+    <div class="row"><button class="btn small" id="dup">Duplizieren</button><button class="btn small danger" id="del">Löschen</button></div>`;
+  renderMats();update();
+}
+function renderMats(){
+  $('#mats').innerHTML=cur().mats.map(m=>`<tr data-id="${m.id}">
+    <td><input id="m-n-${m.id}" data-m="name" value="${esc(m.name)}" ${m.typeId?'readonly title="Aus der Blaupause"':''} placeholder="Name">${m.buildable?'':''}</td>
+    <td style="width:110px"><input id="m-q-${m.id}" class="num" data-m="qty" value="${esc(m.qty)}"></td>
+    <td style="width:130px"><input id="m-p-${m.id}" class="num" data-m="price" value="${esc(m.price)}"></td>
+    <td class="r calc" data-o="q"></td><td class="r" data-o="h"></td><td class="r calc" data-o="c"></td>
+    <td><button class="x" aria-label="Material entfernen">✕</button></td></tr>`).join('');
+}
+function update(){
+  const it=cur();if(!it)return;const r=calc(it);
+  $('#bill').innerHTML=`
+    <div class="hero"><span class="k">Gewinn pro Stück</span><span class="v ${cls(r.perItem)}">${isk(r.perItem)}</span></div>
+    <div><span class="k">Kosten pro Stück</span><span class="v">${isk(r.costPerItem)}</span></div>
+    <div><span class="k">Marge</span><span class="v ${cls(r.margin)}">${fmt(r.margin,1)} %</span></div>
+    <div><span class="k">Gewinn gesamt (${fmt(r.units,0)} Stk.)</span><span class="v ${cls(r.profit)}">${isk(r.profit,0)}</span></div>`;
+  document.querySelectorAll('#mats tr').forEach((tr,i)=>{const l=r.lines[i];if(!l)return;
+    tr.querySelector('[data-o=q]').textContent=fmt(l.q,0);tr.querySelector('[data-o=c]').textContent=isk(l.c,0);
+    const h=tr.querySelector('[data-o=h]');
+    if(l.have==null||!l.q){h.innerHTML='<span class="mut">–</span>';return}
+    h.innerHTML=l.have>=l.q?`<span class="pill ok">${fmt(l.have,0)}</span>`:l.have>0?`<span class="pill part">fehlt ${fmt(l.q-l.have,0)}</span>`:`<span class="pill no">fehlt ${fmt(l.q,0)}</span>`;
+  });
+  const fb=r.fb;
+  $('#facHint').textContent=`Ergibt: ${fmt(fb.mat,2)} % weniger Material, ${fmt(fb.job,1)} % Rabatt auf den Systemindex-Anteil. EIV ${r.eivSource}.`;
+  const sub=it.mats.filter(m=>m.buildable).map(m=>m.name);
+  $('#subHint').textContent=sub.length?`Selbst herstellbar: ${sub.join(', ')}. Dafür ein eigenes Item anlegen und dessen Kosten pro Stück hier als Preis eintragen.`:'';
+  const job=it.manualJob?`<span>− Jobkosten (eingetragen)</span><span class="calc">${isk(r.job,0)}</span>`:
+   `<span>− Jobkosten</span><span class="calc">${isk(r.job,0)}</span>
+    <span class="ind">Systemindex ${fmt(num(it.sci),2)} %${fb.job?` (−${fmt(fb.job,1)} % Struktur)`:''} auf EIV ${short(r.eiv)}</span><span class="calc ind">${isk(r.sciCost,0)}</span>
+    <span class="ind">Facility-Steuer ${fmt(num(it.facTax),2)} %</span><span class="calc ind">${isk(r.facCost,0)}</span>
+    <span class="ind">SCC-Zuschlag ${fmt(num(it.scc),2)} %</span><span class="calc ind">${isk(r.sccCost,0)}</span>
+    ${it.alpha?`<span class="ind">Alpha-Klon 0,25 %</span><span class="calc ind">${isk(r.alphaCost,0)}</span>`:''}`;
+  $('#breakdown').innerHTML=`
+    <span>Verkaufserlös (${fmt(r.units,0)} × ${isk(num(it.price))})</span><span class="calc">${isk(r.gross,0)}</span>
+    <span>− Verkaufssteuer ${fmt(num(it.tax),2)} %</span><span class="calc">${isk(r.tax,0)}</span>
+    <span>− Maklergebühr${it.sellOrder?' '+fmt(num(it.broker),2)+' %':' (keine)'}</span><span class="calc">${isk(r.broker,0)}</span>
+    <span>− Material</span><span class="calc">${isk(r.matCost,0)}</span>
+    ${job}
+    <span class="sum">Gewinn</span><span class="calc sum ${cls(r.profit)}">${isk(r.profit,0)}</span>`;
+  renderList();renderOverview();save();
+}
+
+// ---------- Rendering: Lager & Blaupausen ----------
+function renderStock(){
+  const chars=selectedChars().filter(c=>app.assets[c.id]);
+  const locs={};chars.forEach(c=>Object.assign(locs,app.assets[c.id].locations));
+  const sel=state.settings.loc;
+  $('#locSel').innerHTML=`<option value="all">Alle Standorte</option>`+Object.entries(locs).sort((a,b)=>a[1].localeCompare(b[1])).map(([id,n])=>`<option value="${id}" ${id===sel?'selected':''}>${esc(n)}</option>`).join('');
+  if(sel!=='all'&&!locs[sel]){state.settings.loc='all';mergedCache=null}
+  if(!chars.length){
+    $('#stockStats').innerHTML='';$('#buildable').innerHTML='';
+    $('#stockTable').innerHTML=`<tbody><tr><td><div class="empty">${app.chars.length?'Assets werden geladen …':'Erst unter „Einrichtung“ einen Charakter anmelden.'}</div></td></tr></tbody>`;return}
+  const q=$('#stockSearch').value.trim().toLowerCase(),loc=state.settings.loc;
+  const used=new Set(state.items.flatMap(it=>it.mats.map(m=>m.typeId)));
+  const map=new Map();
+  for(const c of chars)for(const t of app.assets[c.id].types){const n=loc==='all'?t.qty:(t.byLoc[loc]||0);if(!n)continue;
+    const e=map.get(t.typeId)||{...t,qty:0};e.qty+=n;map.set(t.typeId,e)}
+  const all=[...map.values()];
+  const at=chars.map(c=>new Date(app.assets[c.id].at)).sort((a,b)=>a-b)[0];
+  $('#stockStats').innerHTML=`<div><span class="k">Positionen</span><span class="v">${fmt(all.length,0)}</span></div>
+    <div><span class="k">Charaktere</span><span class="v" style="font-size:.95rem">${esc(chars.map(c=>c.name).join(', '))}</span></div>
+    <div><span class="k">Abgerufen</span><span class="v" style="font-size:.95rem">${at.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}</span></div>`;
+  const rows=all.filter(a=>!q||a.name.toLowerCase().includes(q)).sort((a,b)=>(used.has(b.typeId)-used.has(a.typeId))||a.name.localeCompare(b.name));
+  $('#stockTable').innerHTML=`<thead><tr><th>Item</th><th class="r">Menge</th><th>Verwendung</th></tr></thead><tbody>`+
+    rows.slice(0,500).map(a=>`<tr><td>${esc(a.name)}</td><td class="r calc">${fmt(a.qty,0)}</td><td>${used.has(a.typeId)?'<span class="pill ok">Material</span>':''}</td></tr>`).join('')+
+    (rows.length>500?`<tr><td colspan="3" class="mut">… ${rows.length-500} weitere, Suche benutzen</td></tr>`:'')+'</tbody>';
+  $('#buildable').innerHTML=state.items.length?`<thead><tr><th>Item</th><th class="r">Läufe aus Lager</th><th class="r">Stück</th><th class="r">Gewinn / Stück</th><th class="r">Gewinn bei max. Läufen</th></tr></thead><tbody>`+
+    state.items.map(it=>{const n=maxRuns(it),r=calc(it),units=n*Math.max(1,int(it.perRun)||1),p=n?calc(it,n).profit:0;
+      return`<tr><td><a href="#" data-goto="${it.id}">${esc(it.name)}</a></td><td class="r calc">${n?fmt(n,0):'<span class="pill no">0</span>'}</td><td class="r calc">${n?fmt(units,0):'–'}</td><td class="r calc ${cls(r.perItem)}">${isk(r.perItem)}</td><td class="r calc ${n?cls(p):'mut'}">${n?isk(p,0):'–'}</td></tr>`}).join('')+'</tbody>'
+    :'<tbody><tr><td class="mut">Noch keine Rechnungen angelegt.</td></tr></tbody>';
+}
+function renderBps(){
+  const bps=ownedBlueprints(),q=$('#bpSearch').value.trim().toLowerCase();
+  if(!app.chars.length){$('#bpTable').innerHTML='<tbody><tr><td><div class="empty">Erst unter „Einrichtung“ einen Charakter anmelden.</div></td></tr></tbody>';return}
+  const rows=bps.filter(b=>!q||(b.product||b.name).toLowerCase().includes(q)||b.name.toLowerCase().includes(q));
+  $('#bpTable').innerHTML=rows.length?`<thead><tr><th>Blaupause</th><th class="r">ME</th><th class="r">TE</th><th>Art</th><th>Standort</th><th>Charakter</th><th></th></tr></thead><tbody>`+
+    rows.map(b=>`<tr><td>${esc(b.name)}</td><td class="r calc">${b.me}</td><td class="r calc">${b.te}</td><td>${b.runs<0?'<span class="pill info">Original</span>':`Kopie, ${b.runs} Läufe`}</td><td class="mut">${esc(b.location||'')}</td><td class="mut">${esc(b.char)}</td>
+      <td>${b.manufacturable?`<button class="btn small" data-calc="${b.productId}" data-me="${b.me}">Rechnen</button>`:''}</td></tr>`).join('')+'</tbody>'
+    :'<tbody><tr><td class="mut">Keine Blaupausen gefunden.</td></tr></tbody>';
+}
+function updateCounts(){
+  const n=selectedChars().reduce((s,c)=>s+(app.assets[c.id]?.types.length||0),0);$('#stockCnt').textContent=n?fmt(n,0):'';
+  const b=ownedBlueprints().length;$('#bpCnt').textContent=b?fmt(b,0):'';
+}
+function renderAll(){
+  updateCounts();
+  const t=state.tab||'calc';
+  if(t==='calc'){renderEditor();if(!cur()){renderList();renderOverview()}}
+  if(t==='stock')renderStock();
+  if(t==='bps')renderBps();
+  if(t==='setup')renderSetup();
+}
+function setTab(t){state.tab=t;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  for(const v of['calc','stock','bps','setup'])$('#view-'+v).hidden=v!==t;renderAll()}
+
+// ---------- Einrichtung ----------
+let sdePoll;
+function renderSetup(){
+  const s=app.sde||{};
+  $('#st1').classList.toggle('done',!!s.loaded);$('#st2').classList.toggle('done',!!app.clientId);$('#st3').classList.toggle('done',app.chars.length>0);
+  $('#sdeInfo').textContent=s.running?s.step:s.error?('Fehler: '+s.error):s.loaded?`Geladen: ${fmt(s.blueprints,0)} Blaupausen, Stand ${new Date(s.at).toLocaleDateString('de-DE')}.`:'Noch nicht geladen.';
+  $('#sdeBar').hidden=!s.running;$('#sdeBar i').style.width=((s.pct||0)*100)+'%';
+  $('#sdeLoad').textContent=s.loaded?'Auf Updates prüfen':'Spieldaten laden';$('#sdeLoad').disabled=!!s.running;$('#sdeForce').hidden=!s.loaded||s.running;
+  $('#scopeList').innerHTML=(app.scopes||[]).map(x=>`<code>${esc(x)}</code>`).join(' ');
+  $('#cbUrl').textContent=app.callback||'';
+  if(document.activeElement!==$('#clientId'))$('#clientId').value=app.clientId||'';
+  $('#charListSetup').innerHTML=app.chars.map(c=>`<span class="pill ok">${esc(c.name)}</span><button class="btn small ghost" data-logout="${c.id}">Abmelden</button>`).join('');
+  $('#loginBtn').classList.toggle('disabled',!app.clientId);
+  $('#dataDirInfo').textContent=`Gespeichert wird alles lokal in: ${app.dataDir||''}`;
+}
+async function refreshState(){
+  const s=await call('/api/state');
+  Object.assign(app,{chars:s.characters,sde:s.sde,clientId:s.clientId,callback:s.callback,scopes:s.scopes,hubs:s.hubs,dataDir:s.dataDir});
+  $('#charSel').innerHTML=app.chars.length?(app.chars.length>1?'<option value="all">Alle Charaktere</option>':'')+app.chars.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join(''):'<option value="">Kein Charakter</option>';
+  if(!app.chars.some(c=>String(c.id)===String(state.settings.char))&&state.settings.char!=='all')state.settings.char=app.chars[0]?String(app.chars[0].id):'';
+  if(state.settings.char==='all'&&app.chars.length<2)state.settings.char=app.chars[0]?String(app.chars[0].id):'';
+  $('#charSel').value=state.settings.char;
+  $('#hubSel').innerHTML=app.hubs.map(h=>`<option value="${h.key}">Preise: ${esc(h.name.split(' ')[0])}</option>`).join('');$('#hubSel').value=state.settings.hub;
+  $('#addChar').hidden=!app.clientId||!app.chars.length;
+  if(s.sde.running){clearTimeout(sdePoll);sdePoll=setTimeout(()=>refreshState().then(()=>{if(state.tab==='setup')renderSetup()}),1000)}
+  else if(refreshState.wasRunning&&s.sde.loaded){toast('Spieldaten geladen');}
+  refreshState.wasRunning=s.sde.running;
+  showSetupBanner();
+}
+function showBanner(msg,err){const b=$('#banner');b.innerHTML=msg?`<div class="banner ${err?'err':''}">${msg}</div>`:''}
+function showSetupBanner(){
+  const missing=[];if(!app.sde.loaded)missing.push('Spieldaten laden');if(!app.clientId)missing.push('EVE-Anwendung registrieren');if(!app.chars.length)missing.push('Charakter anmelden');
+  showBanner(missing.length?`Noch einzurichten: ${missing.join(', ')}. <a href="#" data-tab-link="setup">Zur Einrichtung</a>`:'');
+}
+async function loadSystems(){
+  try{const r=await call('/api/systems');app.systems=r.systems;
+    let dl=$('#sysList');if(!dl){dl=document.createElement('datalist');dl.id='sysList';document.body.appendChild(dl)}
+    dl.innerHTML=app.systems.map(s=>`<option value="${esc(s.name)}">${fmt(s.index,2)} %</option>`).join('');
+    // Index der gespeicherten Systeme aktualisieren
+    let changed=false;for(const it of state.items){if(it.systemId){const s=app.systems.find(x=>x.id===it.systemId);if(s&&plain(s.index)!==String(it.sci)){it.sci=plain(s.index);changed=true}}}
+    if(changed){save()}if(state.tab==='calc')renderEditor();
+  }catch(e){showBanner('Systemindizes nicht abrufbar: '+esc(e.message),true)}
+}
+
+// ---------- Ereignisse ----------
+let searchT;
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='search'){clearTimeout(searchT);searchT=setTimeout(async()=>{const q=t.value.trim();const box=$('#results');
+    if(q.length<2){box.hidden=true;return}
+    if(!app.sde.loaded){box.innerHTML='<p class="hint" style="padding:8px">Erst die Spieldaten laden (Einrichtung).</p>';box.hidden=false;return}
+    const r=await call('/api/search?q='+encodeURIComponent(q)).catch(()=>[]);
+    box.innerHTML=r.length?r.map(h=>`<button data-product="${h.typeId}">${esc(h.name)}${h.alt?`<small>${esc(h.alt)}</small>`:''}</button>`).join(''):'<p class="hint" style="padding:8px">Nichts gefunden.</p>';box.hidden=false},180);return}
+  if(t.id==='stockSearch'){renderStock();return}
+  if(t.id==='bpSearch'){renderBps();return}
+  const it=cur();if(!it||!t.closest('#editor'))return;
+  if(t.id==='f-system'){const s=app.systems.find(x=>x.name.toLowerCase()===t.value.trim().toLowerCase());
+    it.systemName=t.value;if(s){it.systemId=s.id;it.systemName=s.name;it.sci=plain(s.index);$('#f-sci').value=it.sci;state.settings.lastSystem={id:s.id,name:s.name,index:s.index}}update();return}
+  if(t.dataset.k){it[t.dataset.k]=t.value;if(t.dataset.k==='sci'){it.systemId=null}update();return}
+  if(t.dataset.m){const m=it.mats.find(x=>x.id===t.closest('tr').dataset.id);m[t.dataset.m]=t.value;update();return}
+});
+document.addEventListener('change',e=>{
+  const t=e.target,it=cur();
+  if(t.id==='charSel'){state.settings.char=t.value;state.settings.loc='all';save();loadCharData();return}
+  if(t.id==='hubSel'){state.settings.hub=t.value;save();toast('Markt geändert. „Preise aktualisieren“ holt die neuen Preise.');return}
+  if(t.id==='locSel'){state.settings.loc=t.value;mergedCache=null;save();renderStock();return}
+  if(t.id==='matMode'||t.id==='prodMode'){state.settings[t.id]=t.value;save();return}
+  if(!it)return;
+  const remember=()=>{state.settings.lastFacility={facility:it.facility,rig:it.rig,sec:it.sec,facTax:it.facTax}};
+  if(t.id==='f-facility'){it.facility=t.value;const f=FACILITIES[t.value];if(f.fac!=null)it.facTax=f.fac;remember();renderEditor();return}
+  if(t.id==='f-rig'){it.rig=t.value;remember();update();return}
+  if(t.id==='f-sec'){it.sec=t.value;remember();update();return}
+  if(t.id==='f-fac'){remember()}
+  if(t.id==='f-alpha'){it.alpha=t.checked;update();return}
+  if(t.id==='f-sell'){it.sellOrder=t.checked;update();return}
+  if(t.id==='f-manual'){it.manualJob=t.checked;renderEditor();return}
+});
+document.addEventListener('click',async e=>{
+  const a=e.target.closest('[data-goto],[data-tab-link]');
+  if(a){e.preventDefault();if(a.dataset.goto){state.sel=a.dataset.goto;setTab('calc');window.scrollTo(0,0)}else setTab(a.dataset.tabLink);return}
+  if(!e.target.closest('.search'))$('#results').hidden=true;
+  const t=e.target.closest('button');if(!t)return;const it=cur();
+  if(t.dataset.tab){setTab(t.dataset.tab);return}
+  if(t.dataset.product){$('#results').hidden=true;$('#search').value='';addFromProduct(+t.dataset.product);return}
+  if(t.dataset.calc){addFromProduct(+t.dataset.calc,+t.dataset.me);return}
+  if(t.dataset.copy){copy(t.dataset.copy==='scopes'?app.scopes.join(' '):app.callback);return}
+  if(t.dataset.logout){await call('/api/logout?char='+t.dataset.logout,{method:'POST'});delete app.assets[t.dataset.logout];await refreshState();loadCharData();renderSetup();return}
+  if(t.closest('#list')){state.sel=t.dataset.id;save();renderEditor();return}
+  if(t.classList.contains('x')){it.mats=it.mats.filter(m=>m.id!==t.closest('tr').dataset.id);renderMats();update();return}
+  switch(t.id){
+    case'addBlank':{const n={...defaults,id:uid(),name:'Neues Item',mats:[{id:uid(),name:'',qty:'',price:''}]};applySkills(n);state.items.unshift(n);state.sel=n.id;save();renderEditor();$('#f-name').select();return}
+    case'addMat':it.mats.push({id:uid(),name:'',qty:'',price:''});renderMats();update();return;
+    case'priceThis':fetchPrices([it],true);return;
+    case'refreshAll':fetchPrices(state.items,true);return;
+    case'fromSkills':applySkills(it);renderEditor();toast('Steuer und Maklergebühr aus den Skills übernommen');return;
+    case'shopList':{const r=calc(it);if(!mergedAssets()){toast('Keine Assets geladen');return}
+      const lines=it.mats.map((m,i)=>({n:m.name.trim(),miss:r.lines[i].q-(r.lines[i].have||0)})).filter(x=>x.n&&x.miss>0);
+      if(!lines.length){toast('Alles im Lager vorhanden');return}copy(lines.map(x=>`${x.n} ${x.miss}`).join('\n'));toast('Einkaufsliste kopiert – im Markt unter „Multibuy“ einfügen',3500);return}
+    case'dup':{const c=JSON.parse(JSON.stringify(it));c.id=uid();c.name+=' (Kopie)';c.mats.forEach(m=>m.id=uid());state.items.unshift(c);state.sel=c.id;save();renderEditor();return}
+    case'del':
+      if(t.dataset.armed){state.items=state.items.filter(i=>i.id!==it.id);state.sel=state.items[0]?.id||null;save();renderEditor();renderList();renderOverview();toast('Gelöscht')}
+      else{t.dataset.armed=1;t.textContent='Wirklich löschen?';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Löschen'}},3000)}return;
+    case'stockRefresh':case'bpRefresh':toast('Lade von EVE …');await loadCharData(true);toast('Aktualisiert');return;
+    case'sdeLoad':case'sdeForce':await call('/api/sde/update'+(t.id==='sdeForce'?'?force=1':''),{method:'POST'});await refreshState();renderSetup();return;
+    case'saveClient':{const v=$('#clientId').value.trim();if(!/^[0-9a-f]{32}$/i.test(v)){toast('Die Client ID besteht aus 32 Zeichen (0–9, a–f)');return}
+      await call('/api/config',{method:'POST',body:{clientId:v}});await refreshState();renderSetup();toast('Gespeichert. Jetzt den Charakter anmelden.');return}
+    case'quit':await call('/api/quit',{method:'POST'}).catch(()=>{});document.body.innerHTML='<p style="padding:40px;font-family:system-ui">Das Programm wurde beendet. Dieses Fenster kann geschlossen werden.</p>';return;
+  }
+});
+$('#loginBtn').addEventListener('click',e=>{if(!app.clientId){e.preventDefault();toast('Erst die Client ID speichern (Schritt 2)')}});
+
+// ---------- Start ----------
+(async()=>{
+  try{const d=await call('/api/data');if(d&&Array.isArray(d.items)){state.items=d.items.map(i=>({...defaults,...i}));state.sel=d.sel;Object.assign(state.settings,d.settings||{})}}catch(_){}
+  if(!state.items.find(i=>i.id===state.sel))state.sel=state.items[0]?.id||null;
+  await refreshState();
+  const p=new URLSearchParams(location.search);
+  if(p.get('login')){toast(`${p.get('login')} ist angemeldet`);history.replaceState(null,'','/');
+    const c=app.chars.find(c=>c.name===p.get('login'));if(c){state.settings.char=String(c.id);$('#charSel').value=state.settings.char;save()}}
+  const ready=app.sde.loaded&&app.clientId&&app.chars.length;
+  setTab(ready?'calc':'setup');
+  loadSystems();
+  loadCharData();
+})();
+</script>
+</body>
+</html>
